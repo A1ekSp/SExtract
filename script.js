@@ -8,8 +8,8 @@ const fileName = document.querySelector("#file-name");
 const videoDuration = document.querySelector("#video-duration");
 const startTime = document.querySelector("#start-time");
 const endTime = document.querySelector("#end-time");
-const startTimeOutput = document.querySelector("#start-time-output");
-const endTimeOutput = document.querySelector("#end-time-output");
+const startTimeInput = document.querySelector("#start-time-value");
+const endTimeInput = document.querySelector("#end-time-value");
 const timeHint = document.querySelector("#time-hint");
 const errorMessage = document.querySelector("#form-error");
 const resultMessage = document.querySelector("#result-message");
@@ -39,6 +39,21 @@ function formatTime(seconds) {
     .join(":");
 }
 
+function parseTime(value) {
+  const parts = value.trim().split(":");
+  if (parts.length > 3 || parts.some((part) => !/^\d+$/.test(part))) {
+    return null;
+  }
+
+  const values = parts.map(Number);
+  if (parts.length === 3 && (values[1] > 59 || values[2] > 59)) return null;
+  if (parts.length === 2 && values[1] > 59) return null;
+
+  if (parts.length === 3) return values[0] * 3600 + values[1] * 60 + values[2];
+  if (parts.length === 2) return values[0] * 60 + values[1];
+  return values[0];
+}
+
 function showError(message) {
   errorMessage.textContent = message;
   errorMessage.hidden = false;
@@ -66,10 +81,12 @@ function configureTrim(duration) {
   endTime.value = String(maxTime);
   startTime.disabled = false;
   endTime.disabled = false;
-  startTimeOutput.value = formatTime(0);
-  endTimeOutput.value = formatTime(maxTime);
+  startTimeInput.disabled = false;
+  endTimeInput.disabled = false;
+  startTimeInput.value = formatTime(0);
+  endTimeInput.value = formatTime(maxTime);
   timeHint.textContent =
-    "Drag either slider to adjust the clip. The minimum clip length is 1 second.";
+    "Drag either slider or enter a time as HH:MM:SS. The minimum clip length is 1 second.";
   return true;
 }
 
@@ -101,12 +118,14 @@ function showVideo(file) {
     videoPreview.hidden = true;
     startTime.disabled = true;
     endTime.disabled = true;
+    startTimeInput.disabled = true;
+    endTimeInput.disabled = true;
     startTime.value = "0";
     endTime.value = "0";
     startTime.max = "0";
     endTime.max = "0";
-    startTimeOutput.value = formatTime(0);
-    endTimeOutput.value = formatTime(0);
+    startTimeInput.value = formatTime(0);
+    endTimeInput.value = formatTime(0);
     timeHint.textContent = "Upload a video first to choose a clip.";
     return;
   }
@@ -129,6 +148,8 @@ function showVideo(file) {
   videoPreview.hidden = false;
   startTime.disabled = true;
   endTime.disabled = true;
+  startTimeInput.disabled = true;
+  endTimeInput.disabled = true;
   timeHint.textContent = "Loading file duration…";
 }
 
@@ -184,9 +205,9 @@ startTime.addEventListener("input", () => {
   const end = Number(endTime.value);
   if (start >= end) {
     endTime.value = String(start + 1);
-    endTimeOutput.value = formatTime(start + 1);
+    endTimeInput.value = formatTime(start + 1);
   }
-  startTimeOutput.value = formatTime(start);
+  startTimeInput.value = formatTime(start);
   clearMessages();
 });
 
@@ -195,10 +216,40 @@ endTime.addEventListener("input", () => {
   const start = Number(startTime.value);
   if (end <= start) {
     startTime.value = String(end - 1);
-    startTimeOutput.value = formatTime(end - 1);
+    startTimeInput.value = formatTime(end - 1);
   }
-  endTimeOutput.value = formatTime(end);
+  endTimeInput.value = formatTime(end);
   clearMessages();
+});
+
+function updateTimeFromInput(input, slider, otherSlider, otherInput, isStart) {
+  const time = parseTime(input.value);
+  const minimum = Number(slider.min);
+  const maximum = Number(slider.max);
+  if (time === null || time < minimum || time > maximum) {
+    showError(`Enter a time between ${formatTime(minimum)} and ${formatTime(maximum)}.`);
+    return;
+  }
+
+  slider.value = String(time);
+  const otherTime = Number(otherSlider.value);
+  if (isStart && time >= otherTime) {
+    otherSlider.value = String(time + 1);
+    otherInput.value = formatTime(time + 1);
+  } else if (!isStart && time <= otherTime) {
+    otherSlider.value = String(time - 1);
+    otherInput.value = formatTime(time - 1);
+  }
+
+  input.value = formatTime(time);
+  clearMessages();
+}
+
+startTimeInput.addEventListener("change", () => {
+  updateTimeFromInput(startTimeInput, startTime, endTime, endTimeInput, true);
+});
+endTimeInput.addEventListener("change", () => {
+  updateTimeFromInput(endTimeInput, endTime, startTime, startTimeInput, false);
 });
 
 function setupAudioCapture() {
@@ -415,6 +466,19 @@ form.addEventListener("submit", async (event) => {
 
   const start = Number(startTime.value);
   const end = Number(endTime.value);
+
+  const enteredStart = parseTime(startTimeInput.value);
+  const enteredEnd = parseTime(endTimeInput.value);
+  if (enteredStart === null || enteredStart !== start) {
+    showError("Enter a valid start time in HH:MM:SS format.");
+    startTimeInput.focus();
+    return;
+  }
+  if (enteredEnd === null || enteredEnd !== end) {
+    showError("Enter a valid end time in HH:MM:SS format.");
+    endTimeInput.focus();
+    return;
+  }
 
   if (new FormData(form).get("format") !== "wav") {
     showError("MP3 export needs an encoder, which is not included yet. Choose WAV instead.");

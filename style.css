@@ -368,12 +368,28 @@ h1 span {
   margin-bottom: 0;
 }
 
-.slider-time {
+.slider-time-input {
+  width: 92px;
+  padding: 3px 5px;
+  border: 1px solid #e8eae4;
+  border-radius: 5px;
+  background: #fff;
   color: #42483a;
   font-family: Manrope, sans-serif;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.35px;
+  text-align: center;
+}
+
+.slider-time-input:focus-visible {
+  outline: 2px solid #8eaf51;
+  outline-offset: 2px;
+}
+
+.slider-time-input:disabled {
+  background: #fafbf8;
+  color: #92978d;
 }
 
 .time-slider {

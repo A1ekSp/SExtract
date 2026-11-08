@@ -103,11 +103,14 @@
             <div class="slider-field">
               <div class="slider-heading">
                 <label class="field-label" for="start-time">START</label>
-                <output
-                  class="slider-time"
-                  id="start-time-output"
-                  for="start-time"
-                  >00:00:00</output
+                <input
+                  class="slider-time-input"
+                  id="start-time-value"
+                  type="text"
+                  value="00:00:00"
+                  aria-label="Start time (HH:MM:SS)"
+                  autocomplete="off"
+                  disabled
                 >
               </div>
               <input
@@ -125,8 +128,14 @@
             <div class="slider-field">
               <div class="slider-heading">
                 <label class="field-label" for="end-time">END</label>
-                <output class="slider-time" id="end-time-output" for="end-time"
-                  >00:00:00</output
+                <input
+                  class="slider-time-input"
+                  id="end-time-value"
+                  type="text"
+                  value="00:00:00"
+                  aria-label="End time (HH:MM:SS)"
+                  autocomplete="off"
+                  disabled
                 >
               </div>
               <input

@@ -277,14 +277,22 @@ function setupAudioCapture() {
     if (channelCount === 0) {
       channelCount = event.inputBuffer.numberOfChannels;
       sampleRate = event.inputBuffer.sampleRate;
-      audioChunks = Array.from({ length: channelCount }, () => []);
     }
 
-    for (let channel = 0; channel < channelCount; channel += 1) {
-      audioChunks[channel].push(
-        new Float32Array(event.inputBuffer.getChannelData(channel)),
-      );
+    const frameCount = event.inputBuffer.length;
+    const chunk = new Int16Array(frameCount * channelCount);
+    const inputChannels = Array.from(
+      { length: channelCount },
+      (_, channel) => event.inputBuffer.getChannelData(channel),
+    );
+    for (let frame = 0; frame < frameCount; frame += 1) {
+      for (let channel = 0; channel < channelCount; channel += 1) {
+        const sample = Math.max(-1, Math.min(1, inputChannels[channel][frame]));
+        chunk[frame * channelCount + channel] =
+          sample < 0 ? sample * 0x8000 : sample * 0x7fff;
+      }
     }
+    audioChunks.push(chunk);
   };
 
   source.connect(audioProcessor);
@@ -348,9 +356,10 @@ function waitForPlaybackEnd(end) {
 function createWav(chunks, channels, rate, duration) {
   const maxFrames = Math.ceil(duration * rate);
   const bytesPerSample = 2;
-  const dataLength = maxFrames * channels * bytesPerSample;
-  const buffer = new ArrayBuffer(44 + dataLength);
-  const view = new DataView(buffer);
+  const maxSamples = maxFrames * channels;
+  const dataLength = maxSamples * bytesPerSample;
+  const header = new ArrayBuffer(44);
+  const view = new DataView(header);
 
   function writeText(offset, text) {
     for (let index = 0; index < text.length; index += 1) {
@@ -372,30 +381,19 @@ function createWav(chunks, channels, rate, duration) {
   writeText(36, "data");
   view.setUint32(40, dataLength, true);
 
-  for (let channel = 0; channel < channels; channel += 1) {
-    let frameOffset = 0;
-    for (const chunk of chunks[channel]) {
-      const length = Math.min(chunk.length, maxFrames - frameOffset);
-      if (length <= 0) break;
-
-      let sampleOffset =
-        44 + (frameOffset * channels + channel) * bytesPerSample;
-      const frameStride = channels * bytesPerSample;
-      for (let index = 0; index < length; index += 1) {
-        const sample = Math.max(-1, Math.min(1, chunk[index]));
-        view.setInt16(
-          sampleOffset,
-          sample < 0 ? sample * 0x8000 : sample * 0x7fff,
-          true,
-        );
-        sampleOffset += frameStride;
-      }
-
-      frameOffset += length;
-    }
+  const parts = [header];
+  let samplesWritten = 0;
+  for (const chunk of chunks) {
+    const length = Math.min(chunk.length, maxSamples - samplesWritten);
+    if (length <= 0) break;
+    parts.push(chunk.subarray(0, length));
+    samplesWritten += length;
   }
 
-  return new Blob([buffer], { type: "audio/wav" });
+  if (samplesWritten < maxSamples) {
+    parts.push(new Int16Array(maxSamples - samplesWritten));
+  }
+  return new Blob(parts, { type: "audio/wav" });
 }
 
 function downloadBlob(blob, file) {
@@ -408,41 +406,6 @@ function downloadBlob(blob, file) {
   link.click();
   link.remove();
   window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
-}
-
-async function extractAudioFile(file, start, end) {
-  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-  if (!AudioContextClass) {
-    throw new Error("This browser does not support audio processing.");
-  }
-
-  const context = new AudioContextClass();
-  try {
-    let audioBuffer;
-    try {
-      audioBuffer = await context.decodeAudioData(await file.arrayBuffer());
-    } catch {
-      throw new Error(
-        "This audio format isn't supported by your browser. Try MP3, WAV, M4A, or OGG.",
-      );
-    }
-    const firstFrame = Math.floor(start * audioBuffer.sampleRate);
-    const lastFrame = Math.min(
-      audioBuffer.length,
-      Math.floor(end * audioBuffer.sampleRate),
-    );
-    if (lastFrame <= firstFrame) {
-      throw new Error("The selected clip is too short to export.");
-    }
-
-    const channels = Array.from({ length: audioBuffer.numberOfChannels }, (_, index) => [
-      audioBuffer.getChannelData(index).subarray(firstFrame, lastFrame),
-    ]);
-    const duration = (lastFrame - firstFrame) / audioBuffer.sampleRate;
-    return createWav(channels, audioBuffer.numberOfChannels, audioBuffer.sampleRate, duration);
-  } finally {
-    await context.close();
-  }
 }
 
 form.addEventListener("submit", async (event) => {
@@ -492,28 +455,23 @@ form.addEventListener("submit", async (event) => {
   submitButton.querySelector("span").textContent = "Processing clip…";
 
   try {
-    let audioBlob;
-    if (mediaKind === "audio") {
-      audioBlob = await extractAudioFile(file, start, end);
-    } else {
-      channelCount = 0;
-      audioChunks = [];
-      setupAudioCapture();
-      await audioContext.resume();
-      activeMedia.pause();
-      await waitForSeek(start);
-      isCapturing = true;
-      await activeMedia.play();
-      await waitForPlaybackEnd(end);
-      isCapturing = false;
+    channelCount = 0;
+    audioChunks = [];
+    setupAudioCapture();
+    await audioContext.resume();
+    activeMedia.pause();
+    await waitForSeek(start);
+    isCapturing = true;
+    await activeMedia.play();
+    await waitForPlaybackEnd(end);
+    isCapturing = false;
 
-      if (channelCount === 0 || audioChunks.every((channel) => channel.length === 0)) {
-        throw new Error("No audio was found in this video, or the browser couldn't read it.");
-      }
-
-      audioBlob = createWav(audioChunks, channelCount, sampleRate, end - start);
+    if (channelCount === 0 || audioChunks.length === 0) {
+      throw new Error("No audio was found in this file, or the browser couldn't read it.");
     }
 
+    const audioBlob = createWav(audioChunks, channelCount, sampleRate, end - start);
+    audioChunks = [];
     downloadBlob(audioBlob, file);
     resultTitle.textContent = "Audio downloaded";
     resultDescription.textContent =
@@ -521,8 +479,11 @@ form.addEventListener("submit", async (event) => {
     resultMessage.hidden = false;
   } catch (error) {
     isCapturing = false;
-    showError(error instanceof Error ? error.message : "Could not process this video.");
+    showError(error instanceof Error ? error.message : "Could not process this file.");
   } finally {
+    isCapturing = false;
+    audioChunks = [];
+    channelCount = 0;
     activeMedia.pause();
     submitButton.disabled = false;
     submitButton.querySelector("span").textContent = "Extract and download audio";

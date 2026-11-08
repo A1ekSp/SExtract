@@ -347,26 +347,8 @@ function waitForPlaybackEnd(end) {
 
 function createWav(chunks, channels, rate, duration) {
   const maxFrames = Math.ceil(duration * rate);
-  const mergedChannels = chunks.map((channelChunks) => {
-    const merged = new Float32Array(maxFrames);
-    let offset = 0;
-
-    for (const chunk of channelChunks) {
-      const length = Math.min(chunk.length, maxFrames - offset);
-      if (length <= 0) break;
-      merged.set(chunk.subarray(0, length), offset);
-      offset += length;
-    }
-
-    return merged;
-  });
-
-  const frameCount = Math.min(
-    maxFrames,
-    ...mergedChannels.map((channel) => channel.length),
-  );
   const bytesPerSample = 2;
-  const dataLength = frameCount * channels * bytesPerSample;
+  const dataLength = maxFrames * channels * bytesPerSample;
   const buffer = new ArrayBuffer(44 + dataLength);
   const view = new DataView(buffer);
 
@@ -390,16 +372,26 @@ function createWav(chunks, channels, rate, duration) {
   writeText(36, "data");
   view.setUint32(40, dataLength, true);
 
-  let offset = 44;
-  for (let frame = 0; frame < frameCount; frame += 1) {
-    for (let channel = 0; channel < channels; channel += 1) {
-      const sample = Math.max(-1, Math.min(1, mergedChannels[channel][frame]));
-      view.setInt16(
-        offset,
-        sample < 0 ? sample * 0x8000 : sample * 0x7fff,
-        true,
-      );
-      offset += bytesPerSample;
+  for (let channel = 0; channel < channels; channel += 1) {
+    let frameOffset = 0;
+    for (const chunk of chunks[channel]) {
+      const length = Math.min(chunk.length, maxFrames - frameOffset);
+      if (length <= 0) break;
+
+      let sampleOffset =
+        44 + (frameOffset * channels + channel) * bytesPerSample;
+      const frameStride = channels * bytesPerSample;
+      for (let index = 0; index < length; index += 1) {
+        const sample = Math.max(-1, Math.min(1, chunk[index]));
+        view.setInt16(
+          sampleOffset,
+          sample < 0 ? sample * 0x8000 : sample * 0x7fff,
+          true,
+        );
+        sampleOffset += frameStride;
+      }
+
+      frameOffset += length;
     }
   }
 

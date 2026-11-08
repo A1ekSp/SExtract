@@ -1,0 +1,5 @@
+dist/
+windows/bin/
+windows/obj/
+windows/www/*
+!windows/www/.gitkeep

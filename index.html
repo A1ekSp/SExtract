@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Extract an audio clip from a video file right in your browser."
+    />
+    <title>SExtract — Audio from Video</title>
+    <link rel="icon" type="image/x-icon" href="./favicon.ico?v=2" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
+    <script src="script.js" defer></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="#" aria-label="SExtract — home">
+        <span class="brand-mark" aria-hidden="true">
+          <span></span><span></span><span></span><span></span>
+        </span>
+        SExtract<span class="brand-period">.</span>
+      </a>
+      <span class="topbar-note"
+        ><span class="status-dot"></span> Extract audio, simply</span
+      >
+    </header>
+
+    <main>
+      <section class="intro" aria-labelledby="page-title">
+        <div class="eyebrow"><span></span> AUDIO CLIPPER</div>
+        <h1 id="page-title">
+          Keep only<br />what <span style="font-weight: bolder">sounds.</span>
+        </h1>
+        <p class="intro-copy">
+          Upload an audio or video file, choose the part you need, and save it
+          as WAV.
+        </p>
+      </section>
+
+      <section class="workspace" aria-label="Audio clip settings">
+        <div class="workspace-heading">
+          <div class="step-number">01</div>
+          <div>
+            <h2>Your source</h2>
+            <p>Choose an audio or video file from your device</p>
+          </div>
+        </div>
+
+        <form id="extract-form" novalidate>
+          <label class="field-label" for="video-file"
+            >AUDIO OR VIDEO FILE</label
+          >
+          <label class="upload-field" id="upload-field" for="video-file">
+            <input
+              id="video-file"
+              name="videoFile"
+              type="file"
+              accept="audio/*,video/*"
+              aria-describedby="file-hint form-error"
+              required
+            />
+            <span class="upload-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <path d="M12 16V4m0 0L7 9m5-5 5 5" />
+                <path d="M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" />
+              </svg>
+            </span>
+            <span class="upload-copy"
+              ><strong>Choose an audio or video file</strong
+              ><span>or drag and drop it here</span></span
+            >
+            <span class="upload-types">Audio and video formats</span>
+          </label>
+          <p class="field-hint" id="file-hint">
+            Your file is processed locally in your browser.
+          </p>
+          <div class="video-preview" id="video-preview" hidden>
+            <video id="video-player" controls preload="metadata"></video>
+            <audio id="audio-player" controls preload="metadata" hidden></audio>
+            <div class="video-meta">
+              <strong id="file-name"></strong>
+              <span id="video-duration"></span>
+            </div>
+          </div>
+
+          <div class="section-divider"></div>
+
+          <div class="workspace-heading fragment-heading">
+            <div class="step-number">02</div>
+            <div>
+              <h2>Choose a clip</h2>
+              <p>Drag the sliders to set the start and end</p>
+            </div>
+          </div>
+
+          <div class="trim-controls" aria-describedby="time-hint">
+            <div class="slider-field">
+              <div class="slider-heading">
+                <label class="field-label" for="start-time">START</label>
+                <output
+                  class="slider-time"
+                  id="start-time-output"
+                  for="start-time"
+                  >00:00:00</output
+                >
+              </div>
+              <input
+                class="time-slider"
+                id="start-time"
+                name="startTime"
+                type="range"
+                min="0"
+                max="0"
+                value="0"
+                step="1"
+                disabled
+              />
+            </div>
+            <div class="slider-field">
+              <div class="slider-heading">
+                <label class="field-label" for="end-time">END</label>
+                <output class="slider-time" id="end-time-output" for="end-time"
+                  >00:00:00</output
+                >
+              </div>
+              <input
+                class="time-slider"
+                id="end-time"
+                name="endTime"
+                type="range"
+                min="0"
+                max="0"
+                value="0"
+                step="1"
+                disabled
+              />
+            </div>
+          </div>
+          <p class="field-hint time-hint" id="time-hint">
+            Upload a video first to choose a clip.
+          </p>
+
+          <div class="section-divider options-divider"></div>
+
+          <div class="format-row">
+            <div>
+              <span class="field-label">AUDIO FORMAT</span>
+              <p class="field-hint">Audio is created right in your browser</p>
+            </div>
+            <div class="format-options">
+              <label class="format-option">
+                <input type="radio" name="format" value="mp3" disabled />
+                <span>MP3 <small>encoder needed</small></span>
+              </label>
+              <label class="format-option">
+                <input type="radio" name="format" value="wav" checked />
+                <span>WAV <small>lossless</small></span>
+              </label>
+            </div>
+            <p class="field-hint format-hint">
+              MP3 needs an extra encoder. This version creates WAV files without
+              uploading your file.
+            </p>
+          </div>
+
+          <p class="form-error" id="form-error" role="alert" hidden></p>
+          <button class="submit-button" type="submit">
+            <span>Extract and download audio</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M5 12h14M13 6l6 6-6 6" />
+            </svg>
+          </button>
+          <p class="legal-note">
+            Only use audio or video files you have the right to edit.
+          </p>
+        </form>
+
+        <div
+          class="result-message"
+          id="result-message"
+          role="status"
+          aria-live="polite"
+          hidden
+        >
+          <span class="result-icon" aria-hidden="true">i</span>
+          <div>
+            <strong id="result-title">Done</strong>
+            <p></p>
+          </div>
+        </div>
+      </section>
+
+      <div class="bottom-note">
+        <span class="waveform" aria-hidden="true">
+          <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i
+          ><i></i>
+        </span>
+        <span>Nothing extra. Just your sound.</span>
+      </div>
+    </main>
+  </body>
+</html>
